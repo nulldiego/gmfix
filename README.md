@@ -3,11 +3,10 @@ Web app: Backup and restore playlists in Google Play Music
 
 This project is not endorsed by or affiliated with Google in any way.
 
-##To-Do
+## To-Do
 * Bla
 * Bla
 
-##Attribution
-
+## Attribution
 Special thanks go out to the following individuals and projects:
 - [gmusicapi project](https://github.com/simon-weber/Unofficial-Google-Music-API/blob/develop/gmusicapi/protocol/mobileclient.py)  by Simon Weber and others
