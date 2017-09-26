@@ -1,11 +1,7 @@
 # gmfix
-Web app: Backup and restore playlists in Google Play Music
+*Web app: Backup and restore playlists in Google Play Music*
 
 This project is not endorsed by or affiliated with Google in any way.
-
-## To-Do
-* Bla
-* Bla
 
 ## Attribution
 Special thanks go out to the following individuals and projects:
