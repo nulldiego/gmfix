@@ -1,1 +1,1 @@
-web: gunicorn gmfix.wsgi --log-file -
+web: gunicorn gmusicfix.wsgi --log-file -
