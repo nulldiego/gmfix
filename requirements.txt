@@ -10,7 +10,6 @@ gpsoauth==0.4.1
 gunicorn==19.7.1
 html5lib==0.999
 httplib2==0.10.3
-language-selector==0.1
 lightdm-gtk-greeter-settings==1.2.1
 lxml==3.5.0
 MechanicalSoup==0.7.0
