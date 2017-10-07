@@ -51,10 +51,15 @@ def playlists(request):
     close_api()
 
     # Render the HTML template index.html with the data in the context variable
+    # playlist_list = []
+    # p = Playlist(name="Hola", google_id="bla", owner="bla")
+    # p.stored_tracks = 0
+    # p.actual_tracks = 0
+    # playlist_list.append(p)
     return render(
         request,
         'playlists.html',
-        context={'playlist_list': playlist_list},
+        context={'playlist_list': sorted(playlist_list, key=lambda playlist: playlist.name)},
     )
 
 def backup_all(request):

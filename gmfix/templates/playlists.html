@@ -1,8 +1,9 @@
 {% extends "base_generic.html" %}
 
 {% block javascript %}
-  <script>
+    <script>
     $(".restore").click(function () {
+      waitingDialog.show('Restoring your playlist...');
       var playlist_id = $(this).val();
       $.ajax({
         url: '{% url "restore" %}',
@@ -11,17 +12,22 @@
         },
         dataType: 'json',
         success: function (data) {
-            alert(data.num_tracks);
+            $("#" + playlist_id).removeClass("danger");
+            $("#" + playlist_id + " > td:nth-child(4)").text(data.num_tracks + " tracks");
+            waitingDialog.hide();
+            $('#myModal').modal({show:true})
         }
       });
     });
 
     $("#backup_all").click(function () {
+      waitingDialog.show('Backing up your playlists...');
       $.ajax({
         url: '{% url "backup_all" %}',
         dataType: 'json',
         success: function (data) {
-            alert(data.done);
+            waitingDialog.hide();
+            location.reload();
         }
       });
     });
@@ -29,45 +35,82 @@
 {% endblock %}
 
 {% block content %}
-<h1>Play Music Fix</h1>
 
-  <p>Welcome to <em>Play Music Fix</em>, a very basic website developed to backup your Play Music playlists.</p>
+<!-- Nav tabs -->
 
-<h2>Playlists</h2>
+<ul class="nav nav-tabs m-t-20" role="tablist">
+    <li class="nav-item active">
+        <a class="nav-link active" data-toggle="tab" href="#playlists" role="tab">Playlists</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-toggle="tab" href="#setlist" role="tab">Setlist.FM to Play Music</a>
+    </li>
+</ul>
 
-<div class="col-xs-10 col-md-8">
+<!-- Tab panes -->
+<div class="tab-content m-t-20">
+    <div class="tab-pane active" id="playlists" role="tabpanel">
+        <div class="col-xs-12">
+            <table class="table table-striped table-hover table-condensed">
+                <thead>
+                    <tr>
+                    <th>Playlist</th>
+                    <th colspan="2" class="text-center">Backup</th>
+                    <th colspan="2" class="text-center">Real</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if playlist_list %}
+                        {% for playlist in playlist_list %}
+                        <tr id="{{ playlist.google_id }}" class="{% if playlist.stored_tracks != playlist.actual_tracks %}danger{% endif %}">
+                            <td>{{ playlist.name }}</td>
+                            <td class="adjust-width text-right">
+                                {{ playlist.stored_tracks }} tracks
+                            </td>
+                            <td class="adjust-width">
+                                <button id="restore" class="restore btn btn-primary btn-xs" name="restore" value="{{ playlist.google_id }}" type="submit">Restore</button>
+                            </td>
+                            <td class="adjust-width text-right">
+                                {{ playlist.actual_tracks }} tracks
+                            </td>
+                            <td class="adjust-width">
+                                <button id="backup" class="btn btn-info btn-xs disabled" name="backup" value="{{ playlist.google_id }}" type="submit">Backup</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5">No playlists available.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        {% if playlist_list %}
+            <div class="text-center">
+                <button id="backup_all" class="btn btn-info" name="backup_all" value="backup_all" type="submit">Backup All Playlists</button>
+            </div>
+        {% endif %}
+    </div>
+    <div class="tab-pane" id="setlist" role="tabpanel">...</div>
+</div>
 
-    {% if playlist_list %}
-    <table class="table table-striped table-hover table-condensed">
-        <thead>
-            <tr>
-                <th>Playlist</th>
-                <th>Backup</th>
-                <th>Real</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for playlist in playlist_list %}
-                <tr class="{% if playlist.stored_tracks != playlist.actual_tracks %}danger{% endif %}">
-                <td>{{ playlist.name }}</td>
-                <td>
-                    {{ playlist.stored_tracks }} tracks
-                    <button id="restore" class="restore" name="restore" value="{{ playlist.google_id }}" type="submit">Restore</button>
-                </td>
-                <td>
-                    {{ playlist.actual_tracks }} tracks
-                    <button id="backup" name="backup" value="{{ playlist.google_id }}" type="submit">Backup</button>
-                </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p>No playlists available.</p>
-    {% endif %}
 
-    <button id="backup_all" name="backup_all" value="backup_all" type="submit">Backup All Playlists</button>
-
+<div class="modal" id="myModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+                <h4 class="modal-title">Done</h4>
+            </div>
+            <div class="modal-body">
+                All done! :)
+            </div>
+            <div class="modal-footer">
+                <a href="#" data-dismiss="modal" class="btn btn-primary">Close</a>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock %}
