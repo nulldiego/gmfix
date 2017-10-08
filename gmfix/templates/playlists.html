@@ -87,12 +87,29 @@
             </table>
         </div>
         {% if playlist_list %}
-            <div class="text-center">
+            <div class="text-center m-b-20">
                 <button id="backup_all" class="btn btn-info" name="backup_all" value="backup_all" type="submit">Backup All Playlists</button>
             </div>
         {% endif %}
     </div>
-    <div class="tab-pane" id="setlist" role="tabpanel">...</div>
+    <div class="tab-pane" id="setlist" role="tabpanel">
+        <div class="col-xs-12">
+            <div class="form-group col-xs-12">
+                <label for="setlist-id">Setlist ID:</label>
+                <input type="text" class="form-control" name="setlist" id="setlist-id" required/>
+            </div>
+            <div class="form-group col-xs-12">
+                <label for="playlist-name">Playlist name:</label>
+                <input type="text" class="form-control" name="playlist name" id="playlist-name" required/>
+            </div>
+            <div class="col-xs-12">
+                {% if error_message %}<p class="text-justified text-danger">{{ error_message }}</p>{% endif %}
+            </div>
+            <div class="form-group col-xs-12 text-center m-b-20">
+                <button id="setlist-to-gpm" class="btn btn-primary" name="setlist to gpm" value="setlist-to-gpm" type="submit">Generate Playlist</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 

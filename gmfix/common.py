@@ -192,8 +192,7 @@ def open_api(username, password):
     api = Mobileclient()
     if not api.login(username, password, Mobileclient.FROM_MAC_ADDRESS):
         log('ERROR unable to login')
-        time.sleep(3)
-        exit()
+        return api;
 
     password = None
     log('Login Successful.')

@@ -15,9 +15,6 @@ def index(request):
     # Generate counts of some of the main objects
     num_tracks = Track.objects.count()
     num_playlists = Playlist.objects.count()
-    # Available books (status = 'a')
-    #num_instances_available = BookInstance.objects.filter(status__exact='a').count()
-    #num_authors = Author.objects.count()  # The 'all()' is implied by default.
 
     # Render the HTML template index.html with the data in the context variable
     return render(
@@ -31,36 +28,45 @@ def playlists(request):
     View function for playlists page of site.
     """
     api = open_api(request.POST['mail'], request.POST['password'])
-    library = load_personal_library()
-    playlist_contents = api.get_all_user_playlist_contents()
-    playlist_list = []
-    for pl in playlist_contents:
-        # for tr in pl.get('tracks'):
+    if api.is_authenticated():
+        library = load_personal_library()
+        playlist_contents = api.get_all_user_playlist_contents()
+        playlist_list = []
+        for pl in playlist_contents:
+            # for tr in pl.get('tracks'):
 
-        p = Playlist(name=pl.get('name'), google_id=pl.get('id'), owner=request.POST['mail'])
-        # p.save()
-        p.stored_tracks = 0
-        p.actual_tracks = len(pl.get('tracks'))
-        playlist_list.append(p)
-        if Playlist.objects.filter(google_id=p.google_id).count() > 0:
-            stored_p = Playlist.objects.get(google_id=p.google_id);
-            p.stored_tracks = stored_p.tracks.count()
-    request.session['mail'] = request.POST['mail']
-    request.session['password'] = request.POST['password']
+            p = Playlist(name=pl.get('name'), google_id=pl.get('id'), owner=request.POST['mail'])
+            # p.save()
+            p.stored_tracks = 0
+            p.actual_tracks = len(pl.get('tracks'))
+            playlist_list.append(p)
+            if Playlist.objects.filter(google_id=p.google_id).count() > 0:
+                stored_p = Playlist.objects.get(google_id=p.google_id);
+                p.stored_tracks = stored_p.tracks.count()
+        request.session['mail'] = request.POST['mail']
+        request.session['password'] = request.POST['password']
 
-    close_api()
+        close_api()
 
-    # Render the HTML template index.html with the data in the context variable
-    # playlist_list = []
-    # p = Playlist(name="Hola", google_id="bla", owner="bla")
-    # p.stored_tracks = 0
-    # p.actual_tracks = 0
-    # playlist_list.append(p)
-    return render(
-        request,
-        'playlists.html',
-        context={'playlist_list': sorted(playlist_list, key=lambda playlist: playlist.name)},
-    )
+        # Render the HTML template index.html with the data in the context variable
+        # playlist_list = []
+        # p = Playlist(name="Hola", google_id="bla", owner="bla")
+        # p.stored_tracks = 0
+        # p.actual_tracks = 0
+        # playlist_list.append(p)
+        return render(
+            request,
+            'playlists.html',
+            context={'playlist_list': sorted(playlist_list, key=lambda playlist: playlist.name)},
+        )
+    else:
+        num_tracks = Track.objects.count()
+        num_playlists = Playlist.objects.count()
+        return render(
+            request,
+            'index.html',
+            context={'num_tracks': num_tracks, 'num_playlists': num_playlists, 'error_message': "Unable to login, make sure you're using your Google Account and an app password."},
+        )
 
 def backup_all(request):
     api = open_api(request.session['mail'], request.session['password'])
