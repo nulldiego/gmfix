@@ -8,6 +8,7 @@ Special thanks go out to the following individuals and projects:
 - [gmusicapi project](https://github.com/simon-weber/Unofficial-Google-Music-API/blob/develop/gmusicapi/protocol/mobileclient.py)  by Simon Weber and others
 
 ## Setup
-python3
-python3-pip
-pip3 install django
+- sudo apt-get install python3
+- sudo apt-get install python3-pip
+- pip3 install django
+- python3 manage.py runserver
