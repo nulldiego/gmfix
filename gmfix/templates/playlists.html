@@ -31,6 +31,22 @@
         }
       });
     });
+
+    $("#setlist-to-gpm").click(function () {
+      waitingDialog.show('Generating playlist...');
+      $.ajax({
+        url: '{% url "setlist" %}',
+        data: {
+            'setlist_id': $("#setlist-id").val(),
+            'playlist_name': $("#playlist-name").val(),
+        },
+        dataType: 'json',
+        success: function (data) {
+            waitingDialog.hide();
+            $('#myModal').modal({show:true})
+        }
+      });
+    });
   </script>
 {% endblock %}
 

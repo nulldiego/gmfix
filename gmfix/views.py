@@ -2,10 +2,21 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.template import loader
 from .common import *
+import requests
 
 # Create your views here.
 
 from .models import Track, Playlist
+
+
+# compares two strings based only on their characters
+def s_in_s(string1, string2):
+    if not string1 or not string2:
+        return False
+    s1 = re.compile('[\W_]+', re.UNICODE).sub(u'', string1.lower())
+    s2 = re.compile('[\W_]+', re.UNICODE).sub(u'', string2.lower())
+
+    return s1 in s2 or s2 in s1
 
 
 def index(request):
@@ -22,6 +33,7 @@ def index(request):
         'index.html',
         context={'num_tracks': num_tracks, 'num_playlists': num_playlists},
     )
+
 
 def playlists(request):
     """
@@ -65,8 +77,10 @@ def playlists(request):
         return render(
             request,
             'index.html',
-            context={'num_tracks': num_tracks, 'num_playlists': num_playlists, 'error_message': "Unable to login, make sure you're using your Google Account and an app password."},
+            context={'num_tracks': num_tracks, 'num_playlists': num_playlists,
+                     'error_message': "Unable to login, make sure you're using your Google Account and an app password."},
         )
+
 
 def backup_all(request):
     api = open_api(request.session['mail'], request.session['password'])
@@ -147,10 +161,10 @@ def backup_all(request):
         log_stats(stats_results)
         log(u'export skipped: ' + str(export_skipped))
 
-
-    data = { 'done': 1 }
+    data = {'done': 1}
     close_api()
     return JsonResponse(data)
+
 
 def backup(request):
     playlist_id = request.GET.get('playlists_id', None)
@@ -158,6 +172,7 @@ def backup(request):
         'num_tracks': 'Not available yet.'
     }
     return JsonResponse(data)
+
 
 def restore(request):
     log('RESTORE')
@@ -222,11 +237,312 @@ def restore(request):
     log(u'Adding ' + str(len(song_ids)) + ' found songs to: ' + p.name)
     log('===============================================================')
 
-
     current_playlist_name = p.name
 
     # create the playlist and add the songs
     # playlist_id = api.create_playlist(current_playlist_name)
+
+    added_songs = api.add_songs_to_playlist(playlist_id, song_ids)
+
+    log(u' + ' + current_playlist_name + u' - ' + str(len(added_songs)) +
+        u'/' + str(len(song_ids)) + ' songs')
+
+    # log a final status
+
+    log('===============================================================')
+    log('   ' + str(len(song_ids)) + '/' + str(track_count) + ' tracks imported')
+    log('')
+    stats_results = calculate_stats_results(stats, len(song_ids))
+    log_stats(stats_results)
+
+    log('\nsearch time: ' + str(total_time))
+
+    close_api()
+
+    data = {
+        'num_tracks': len(song_ids)
+    }
+    return JsonResponse(data)
+
+
+def find(key, dictionary):
+    for k, v in dictionary.items():
+        if k == key:
+            yield v
+        elif isinstance(v, dict):
+            for result in find(key, v):
+                yield result
+        elif isinstance(v, list):
+            for d in v:
+                for result in find(key, d):
+                    yield result
+
+
+def setlist(request):
+    log('SETLIST.FM TO GPM')
+    setlist_id = request.GET.get('setlist_id', None)
+    playlist_name = request.GET.get('playlist_name', None)
+
+    setlist_api_key = "895f215d-c072-4974-b639-7add77f120c9"
+
+    url = 'https://api.setlist.fm/rest/1.0/setlist/' + setlist_id
+    headers = {'Accept': 'application/json', 'x-api-key': setlist_api_key}
+
+    # read the setlist into the tracks variable
+    plog('Reading setlist... ')
+    tracks = []
+
+    r = requests.get(url, headers=headers)
+
+    # Get .json Data
+    data = r.json()
+
+    print(data)
+
+    log("VAMOS")
+
+    sl_artist = data['artist']['name']
+
+    sets = data['sets']
+
+    for s in find('song', sets):
+        for tr in s:
+            print(tr)
+            if 'cover' in tr:
+                tracks.append(Track(title=tr['name'], artist=tr['cover']['name']))
+            else:
+                tracks.append(Track(title=tr['name'], artist=sl_artist))
+
+    log('done. ' + str(len(tracks)) + ' tracks loaded.')
+
+    # log in and load personal library
+    api = open_api(request.session['mail'], request.session['password'])
+    library = load_personal_library()
+
+    # begin searching for the tracks
+    log('===============================================================')
+    log(u'Searching for songs from: ' + setlist_id)
+    log('===============================================================')
+
+    # gather up the song_ids and submit as a batch
+    song_ids = []
+
+    # collect some stats on the songs
+    stats = create_stats()
+
+    # time how long it takes
+    start_time = time.time()
+
+    track_count = 0
+
+    # loop over the tracks that were read from the setlist
+    for track in tracks:
+
+        # parse the track info
+        details = {}
+        details['artist'] = track.artist
+        details['title'] = track.title
+
+        # at this point we should have a valid track
+        track_count += 1
+
+        # search for the song
+        search_results = []
+        dlog('search details: ' + str(details))
+
+        # search the personal library for the track
+        # lib_album_match = False
+        # if details['artist'] and details['title'] and search_personal_library:
+        #     lib_results = [item for item in library if
+        #                    s_in_s(details['artist'], item.get('artist'))
+        #                    and s_in_s(details['title'], item.get('title'))]
+        #     dlog('lib search results: ' + str(len(lib_results)))
+        #     for result in lib_results:
+        #         if s_in_s(result['album'], details['album']):
+        #             lib_album_match = True
+        #         item = {}
+        #         item[u'track'] = result
+        #         item[u'score'] = 200
+        #         search_results.append(item)
+
+        # search all access for the track
+        # if not lib_album_match:
+        query = u''
+        if details['artist']:
+            query = details['artist']
+        if details['title']:
+            query += u' ' + details['title']
+        if not len(query):
+            query = track
+        dlog('aa search query:' + query)
+        aa_results = aa_search(query, 7)
+        dlog('aa search results: ' + str(len(aa_results)))
+        search_results.extend(aa_results)
+
+        if not len(search_results):
+            search_result = None
+        else:
+            top_result = search_results[0]
+            # if we have detailed info, perform a detailed search
+            if details['artist'] and details['title']:
+                search_results = [item for item in search_results if
+                                  s_in_s(details['title'], item['track']['title'])
+                                  and s_in_s(details['artist'], item['track']['artist'])]
+                dlog('detail search results: ' + str(len(search_results)))
+                if len(search_results) != 0:
+                    top_result = search_results[0]
+            search_result = top_result
+
+        # a details dictionary we can use for 'smart' searching
+        smart_details = {}
+        smart_details['title'] = details['title']
+        smart_details['artist'] = details['artist']
+
+        # if we didn't find anything strip out any (),{},[],<> from title
+        match_string = '\[.*?\]|{.*?}|\(.*?\)|<.*?>'
+        if not search_result and re.search(match_string, smart_details['title']):
+            dlog('No results found, attempting search again with modified title.')
+            smart_details['title'] = re.sub(match_string, '', smart_details['title'])
+            # search for the song
+            search_results = []
+            dlog('search details: ' + str(details))
+
+            # search the personal library for the track
+            # lib_album_match = False
+            # if details['artist'] and details['title'] and search_personal_library:
+            #     lib_results = [item for item in library if
+            #                    s_in_s(details['artist'], item.get('artist'))
+            #                    and s_in_s(details['title'], item.get('title'))]
+            #     dlog('lib search results: ' + str(len(lib_results)))
+            #     for result in lib_results:
+            #         if s_in_s(result['album'], details['album']):
+            #             lib_album_match = True
+            #         item = {}
+            #         item[u'track'] = result
+            #         item[u'score'] = 200
+            #         search_results.append(item)
+
+            # search all access for the track
+            # if not lib_album_match:
+            query = u''
+            if details['artist']:
+                query = details['artist']
+            if details['title']:
+                query += u' ' + details['title']
+            if not len(query):
+                query = track
+            dlog('aa search query:' + query)
+            aa_results = aa_search(query, 7)
+            dlog('aa search results: ' + str(len(aa_results)))
+            search_results.extend(aa_results)
+
+            if not len(search_results):
+                search_result = None
+            else:
+                top_result = search_results[0]
+                # if we have detailed info, perform a detailed search
+                if details['artist'] and details['title']:
+                    search_results = [item for item in search_results if
+                                      s_in_s(details['title'], item['track']['title'])
+                                      and s_in_s(details['artist'], item['track']['artist'])]
+                    dlog('detail search results: ' + str(len(search_results)))
+                    if len(search_results) != 0:
+                        top_result = search_results[0]
+                search_result = top_result
+
+        # if there isn't a result, try searching for the title only
+        if not search_result and search_title_only:
+            dlog('Attempting to search for title only')
+            smart_details['artist'] = None
+            smart_details['title_only_search'] = True
+            # search for the song
+            search_results = []
+            dlog('search details: ' + str(details))
+
+            # search the personal library for the track
+            # lib_album_match = False
+            # if details['artist'] and details['title'] and search_personal_library:
+            #     lib_results = [item for item in library if
+            #                    s_in_s(details['artist'], item.get('artist'))
+            #                    and s_in_s(details['title'], item.get('title'))]
+            #     dlog('lib search results: ' + str(len(lib_results)))
+            #     for result in lib_results:
+            #         if s_in_s(result['album'], details['album']):
+            #             lib_album_match = True
+            #         item = {}
+            #         item[u'track'] = result
+            #         item[u'score'] = 200
+            #         search_results.append(item)
+
+            # search all access for the track
+            # if not lib_album_match:
+            query = u''
+            if details['artist']:
+                query = details['artist']
+            if details['title']:
+                query += u' ' + details['title']
+            if not len(query):
+                query = track
+            dlog('aa search query:' + query)
+            aa_results = aa_search(query, 7)
+            dlog('aa search results: ' + str(len(aa_results)))
+            search_results.extend(aa_results)
+
+            if not len(search_results):
+                search_result = None
+            else:
+                top_result = search_results[0]
+                # if we have detailed info, perform a detailed search
+                if details['artist'] and details['title']:
+                    search_results = [item for item in search_results if
+                                      s_in_s(details['title'], item['track']['title'])
+                                      and s_in_s(details['artist'], item['track']['artist'])]
+                    dlog('detail search results: ' + str(len(search_results)))
+                    if len(search_results) != 0:
+                        top_result = search_results[0]
+                search_result = top_result
+
+        # check for a result
+        if not search_result:
+            log('No match for ' + smart_details['title'])
+            continue
+
+        # gather up info about result
+        result = search_result.get('track')
+        result_details = create_result_details(result)
+        result_score = u' + '
+        score_reason = u' '
+        is_low_result = False
+        # wrong song
+        if ((details['title']
+             and not s_in_s(details['title'], result_details['title']))
+                or (not details['title']
+                    and not s_in_s(track, result_details['title']))):
+            score_reason += u'{T}'
+            is_low_result = True
+
+        if is_low_result:
+            result_score = u' - '
+
+        result_score = (result_score, score_reason)
+
+        # if the song title doesn't match after a title only search, skip it
+        (score, reason) = result_score
+        if '{T}' in reason and 'title_only_search' in smart_details:
+            log('No match for ' + smart_details['title'])
+            continue
+
+        update_stats(result, stats)
+
+        # add the song to the id list
+        song_ids.append(result_details['songid'])
+
+    total_time = time.time() - start_time
+
+    current_playlist_name = playlist_name
+
+    # create the playlist and add the songs
+    playlist_id = api.create_playlist(current_playlist_name)
 
     added_songs = api.add_songs_to_playlist(playlist_id, song_ids)
 
