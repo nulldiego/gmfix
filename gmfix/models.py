@@ -41,3 +41,17 @@ class Playlist(models.Model):
         Returns the url to access a particular book instance.
         """
         return reverse('playlist', args=[str(self.id)])
+
+
+class Entry(models.Model):
+    """
+    Model representing an Entry
+    """
+    entry_id = models.CharField('Entry ID', max_length=200)
+    playlist = models.ForeignKey(Playlist)
+
+    def __str__(self):
+        """
+        String for representing the Model object.
+        """
+        return self.entry_id

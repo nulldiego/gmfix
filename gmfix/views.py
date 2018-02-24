@@ -6,7 +6,7 @@ import requests
 
 # Create your views here.
 
-from .models import Track, Playlist
+from .models import Track, Playlist, Entry
 
 
 # compares two strings based only on their characters
@@ -111,17 +111,16 @@ def backup_all(request):
             + playlist_name)
         log('============================================================')
 
-        try:
-            p = Playlist.objects.get(google_id=playlist_id)
-        except Playlist.DoesNotExist:
-            p = None
+        Playlist.objects.filter(google_id=playlist_id).delete()
 
-        if not p:
-            p = Playlist(name='a', google_id=playlist_id, owner=owner)
-            p.save()
+        p = Playlist(name=playlist_name, google_id=playlist_id, owner=owner)
+        p.save()
 
         for tnum, pl_track in enumerate(playlist_tracks):
             track = pl_track.get('track')
+
+            e = Entry(entry_id=pl_track.get('id'), playlist=p)
+            e.save()
 
             # we need to look up these track in the library
             if not track:
@@ -167,10 +166,90 @@ def backup_all(request):
 
 
 def backup(request):
-    playlist_id = request.GET.get('playlists_id', None)
+    playlist_to_backup_id = request.GET.get('playlist_id', None)
+    api = open_api(request.session['mail'], request.session['password'])
+    library = load_personal_library()
+    playlist_contents = api.get_all_user_playlist_contents()
+    owner = request.session['mail']
+    for pl in playlist_contents:
+        playlist_name = pl.get('name')
+        playlist_id = pl.get('id')
+        # skip not desired playlists:
+        if playlist_id != playlist_to_backup_id: continue
+        playlist_tracks = pl.get('tracks')
+
+        # skip empty and no-name playlists
+        if not playlist_name: continue
+        if len(playlist_tracks) == 0: continue
+
+        # setup output files
+        # playlist_name = u'a'
+
+        # keep track of stats
+        stats = create_stats()
+        export_skipped = 0
+        # keep track of songids incase we need to skip duplicates
+        song_ids = []
+
+        log('')
+        log('============================================================')
+        log(u'Exporting ' + str(len(playlist_tracks)) + u' tracks from '
+            + playlist_name)
+        log('============================================================')
+
+        Playlist.objects.filter(google_id=playlist_id).delete()
+
+        p = Playlist(name=playlist_name, google_id=playlist_id, owner=owner)
+        p.save()
+
+        for tnum, pl_track in enumerate(playlist_tracks):
+            track = pl_track.get('track')
+
+            e = Entry(entry_id=pl_track.get('id'), playlist=p)
+            e.save()
+
+            # we need to look up these track in the library
+            if not track:
+                library_track = [
+                    item for item in library if item.get('id')
+                                                in pl_track.get('trackId')]
+                if len(library_track) == 0:
+                    log(u'!! ' + str(tnum + 1) + repr(pl_track))
+                    export_skipped += 1
+                    continue
+                track = library_track[0]
+
+            result_details = create_result_details(track)
+
+            # update the stats
+            update_stats(track, stats)
+
+            # export the track
+            song_ids.append(result_details['songid'])
+            try:
+                t = Track.objects.get(google_id=result_details['songid'])
+            except Track.DoesNotExist:
+                t = None
+
+            if not t:
+                t = Track(title=result_details['title'], artist=result_details['artist'],
+                          google_id=result_details['songid'], album=result_details['album'])
+                t.save()
+
+            p.tracks.add(t)
+
+        # calculate the stats
+        stats_results = calculate_stats_results(stats, len(playlist_tracks))
+
+        # output the stats to the log
+        log('')
+        log_stats(stats_results)
+        log(u'export skipped: ' + str(export_skipped))
+
     data = {
-        'num_tracks': 'Not available yet.'
+        'num_tracks': len(song_ids)
     }
+    close_api()
     return JsonResponse(data)
 
 
@@ -184,6 +263,7 @@ def restore(request):
     # read the playlist into the tracks variable
     plog('Reading playlist... ')
     tracks = p.tracks.all()
+    entries = p.entry_set.all()
     log('done. ' + str(len(tracks)) + ' tracks loaded.')
 
     # log in and load personal library
@@ -241,6 +321,12 @@ def restore(request):
 
     # create the playlist and add the songs
     # playlist_id = api.create_playlist(current_playlist_name)
+
+    entry_ids = []
+    for entry in entries:
+        entry_ids.append(entry.entry_id)
+    if len(entry_ids) > 0:
+        api.remove_entries_from_playlist(entry_ids)
 
     added_songs = api.add_songs_to_playlist(playlist_id, song_ids)
 
@@ -517,7 +603,7 @@ def setlist(request):
         if ((details['title']
              and not s_in_s(details['title'], result_details['title']))
                 or (not details['title']
-                    and not s_in_s(track, result_details['title']))):
+                    and not s_in_s(track.title, result_details['title']))):
             score_reason += u'{T}'
             is_low_result = True
 

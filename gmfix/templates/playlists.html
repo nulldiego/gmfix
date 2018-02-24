@@ -20,6 +20,25 @@
       });
     });
 
+
+    $(".backup").click(function () {
+      waitingDialog.show('Backing up your playlist...');
+      var playlist_id = $(this).val();
+      $.ajax({
+        url: '{% url "backup" %}',
+        data: {
+          'playlist_id': playlist_id
+        },
+        dataType: 'json',
+        success: function (data) {
+            $("#" + playlist_id).removeClass("danger");
+            $("#" + playlist_id + " > td:nth-child(2)").text(data.num_tracks + " tracks");
+            waitingDialog.hide();
+            $('#myModal').modal({show:true})
+        }
+      });
+    });
+
     $("#backup_all").click(function () {
       waitingDialog.show('Backing up your playlists...');
       $.ajax({
@@ -90,7 +109,7 @@
                                 {{ playlist.actual_tracks }} tracks
                             </td>
                             <td class="adjust-width">
-                                <button id="backup" class="btn btn-info btn-xs disabled" name="backup" value="{{ playlist.google_id }}" type="submit">Backup</button>
+                                <button id="backup" class="backup btn btn-info btn-xs" name="backup" value="{{ playlist.google_id }}" type="submit">Backup</button>
                             </td>
                         </tr>
                         {% endfor %}
