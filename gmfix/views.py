@@ -54,7 +54,7 @@ def playlists(request):
             playlist_list.append(p)
             if Playlist.objects.filter(google_id=p.google_id).count() > 0:
                 stored_p = Playlist.objects.get(google_id=p.google_id);
-                p.stored_tracks = stored_p.tracks.count()
+                p.stored_tracks = stored_p.entry_set.count()
         request.session['mail'] = request.POST['mail']
         request.session['password'] = request.POST['password']
 
@@ -119,7 +119,7 @@ def backup_all(request):
         for tnum, pl_track in enumerate(playlist_tracks):
             track = pl_track.get('track')
 
-            e = Entry(entry_id=pl_track.get('id'), playlist=p)
+            e = Entry(entry_id=pl_track.get('id'), playlist=p, position=tnum)
             e.save()
 
             # we need to look up these track in the library
@@ -150,7 +150,8 @@ def backup_all(request):
                           google_id=result_details['songid'], album=result_details['album'])
                 t.save()
 
-            p.tracks.add(t)
+            e.track = t
+            e.save()
 
         # calculate the stats
         stats_results = calculate_stats_results(stats, len(playlist_tracks))
@@ -205,7 +206,7 @@ def backup(request):
         for tnum, pl_track in enumerate(playlist_tracks):
             track = pl_track.get('track')
 
-            e = Entry(entry_id=pl_track.get('id'), playlist=p)
+            e = Entry(entry_id=pl_track.get('id'), playlist=p, position=tnum)
             e.save()
 
             # we need to look up these track in the library
@@ -236,7 +237,8 @@ def backup(request):
                           google_id=result_details['songid'], album=result_details['album'])
                 t.save()
 
-            p.tracks.add(t)
+            e.track = t
+            e.save()
 
         # calculate the stats
         stats_results = calculate_stats_results(stats, len(playlist_tracks))
@@ -262,9 +264,8 @@ def restore(request):
         return JsonResponse({'num_tracks': 'error'})
     # read the playlist into the tracks variable
     plog('Reading playlist... ')
-    tracks = p.tracks.all()
-    entries = p.entry_set.all()
-    log('done. ' + str(len(tracks)) + ' tracks loaded.')
+    entries = p.entry_set.all().order_by('position')
+    log('done. ' + str(len(entries)) + ' entries loaded.')
 
     # log in and load personal library
     api = open_api(request.session['mail'], request.session['password'])
@@ -287,8 +288,10 @@ def restore(request):
     track_count = 0
 
     # loop over the tracks that were read from the input file
-    for track in tracks:
-
+    entry_ids = []
+    for entry in entries:
+        entry_ids.append(entry.entry_id)
+        track = entry.track
         # skip empty lines
         if not track:
             continue
@@ -322,9 +325,6 @@ def restore(request):
     # create the playlist and add the songs
     # playlist_id = api.create_playlist(current_playlist_name)
 
-    entry_ids = []
-    for entry in entries:
-        entry_ids.append(entry.entry_id)
     if len(entry_ids) > 0:
         api.remove_entries_from_playlist(entry_ids)
 

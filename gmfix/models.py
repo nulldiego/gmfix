@@ -28,7 +28,6 @@ class Playlist(models.Model):
     name = models.CharField(max_length=200)
     owner = models.CharField(max_length=200)
     google_id = models.CharField('Google ID', max_length=200)
-    tracks = models.ManyToManyField(Track)
 
     def __str__(self):
         """
@@ -47,8 +46,10 @@ class Entry(models.Model):
     """
     Model representing an Entry
     """
+    position = models.IntegerField('Position', default=0)
     entry_id = models.CharField('Entry ID', max_length=200)
     playlist = models.ForeignKey(Playlist)
+    track = models.ForeignKey(Track, null=True)
 
     def __str__(self):
         """
