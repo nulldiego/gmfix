@@ -41,7 +41,6 @@ def playlists(request):
     """
     api = open_api(request.POST['mail'], request.POST['password'])
     if api.is_authenticated():
-        library = load_personal_library()
         playlist_contents = api.get_all_user_playlist_contents()
         playlist_list = []
         for pl in playlist_contents:
@@ -165,13 +164,10 @@ def backup_all(request):
     close_api()
     return JsonResponse(data)
 
-
-def backup(request):
-    playlist_to_backup_id = request.GET.get('playlist_id', None)
-    api = open_api(request.session['mail'], request.session['password'])
+def backup_interno(playlist_to_backup_id, mail, api):
     library = load_personal_library()
     playlist_contents = api.get_all_user_playlist_contents()
-    owner = request.session['mail']
+    owner = mail
     for pl in playlist_contents:
         playlist_name = pl.get('name')
         playlist_id = pl.get('id')
@@ -247,9 +243,13 @@ def backup(request):
         log('')
         log_stats(stats_results)
         log(u'export skipped: ' + str(export_skipped))
+    return len(song_ids)
 
+
+def backup(request):
+    api = open_api(request.session['mail'], request.session['password'])
     data = {
-        'num_tracks': len(song_ids)
+        'num_tracks': backup_interno(request.GET.get('playlist_id', None), request.session['mail'], api)
     }
     close_api()
     return JsonResponse(data)
@@ -269,7 +269,6 @@ def restore(request):
 
     # log in and load personal library
     api = open_api(request.session['mail'], request.session['password'])
-    library = load_personal_library()
 
     # begin searching for the tracks
     log('===============================================================')
@@ -342,7 +341,7 @@ def restore(request):
     log_stats(stats_results)
 
     log('\nsearch time: ' + str(total_time))
-
+    backup_interno(playlist_id, request.session['mail'], api)
     close_api()
 
     data = {
@@ -401,9 +400,8 @@ def setlist(request):
 
     log('done. ' + str(len(tracks)) + ' tracks loaded.')
 
-    # log in and load personal library
+    # log in
     api = open_api(request.session['mail'], request.session['password'])
-    library = load_personal_library()
 
     # begin searching for the tracks
     log('===============================================================')
