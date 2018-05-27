@@ -22,7 +22,7 @@
 
     var recursive_restore = function (index, ids) {
       var value = ids[index];
-      $('.modal-header h3').text('Restoring your playlists... ' + index + 1 + '/' + playlist_ids.length);
+      $('.modal-header h3').text('Restoring your playlists... ' + index + 1 + '/' + ids.length);
       $.ajax({
         url: '{% url "restore" %}',
         data: {
