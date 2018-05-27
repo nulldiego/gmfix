@@ -22,7 +22,7 @@
 
     var recursive_restore = function (index, ids) {
       var value = ids[index];
-      $('.modal-header h3').text('Restoring your playlists... ' + index + 1 + '/' + ids.length);
+      $('.modal-header h3').text('Restoring your playlists... ' + (index + 1) + '/' + ids.length);
       $.ajax({
         url: '{% url "restore" %}',
         data: {
@@ -30,10 +30,8 @@
         },
         dataType: 'json',
         success: function (data) {
-            console.log('success');
             $("#" + value).removeClass("danger");
             $("#" + value + " > td:nth-child(4)").text(data.num_tracks + " tracks");
-            console.log("hide");
             if (index < ids.length - 1) {
                 recursive_restore(index + 1, ids);
             } else {
@@ -45,11 +43,11 @@
     }
 
     $("#bulk-restore").click(function () {
-      var playlist_ids = $(".table input:checkbox:checked").map(function(){
+      var playlist_ids = $(".check-restore:checkbox:checked").map(function(){
           return $(this).val();
       }).get();
       waitingDialog.show('Restoring your playlists... 1/' + playlist_ids.length);
-      $(".table input:checkbox:checked").prop('checked', false);
+      $(".check-restore:checkbox:checked").prop('checked', false);
       recursive_restore(0, playlist_ids);
     });
 
@@ -69,6 +67,37 @@
             $('#myModal').modal({show:true})
         }
       });
+    });
+
+    var recursive_backup = function (index, ids) {
+      var value = ids[index];
+      $('.modal-header h3').text('Backing up your playlists... ' + (index + 1) + '/' + ids.length);
+      $.ajax({
+        url: '{% url "backup" %}',
+        data: {
+          'playlist_id': value
+        },
+        dataType: 'json',
+        success: function (data) {
+            $("#" + value).removeClass("danger");
+            $("#" + value + " > td:nth-child(2)").text(data.num_tracks + " tracks");
+            if (index < ids.length - 1) {
+                recursive_backup(index + 1, ids);
+            } else {
+              waitingDialog.hide();
+              $('#myModal').modal({show:true})
+            }
+        }
+      });
+    }
+
+    $("#bulk-backup").click(function () {
+      var playlist_ids = $(".check-backup:checkbox:checked").map(function(){
+          return $(this).val();
+      }).get();
+      waitingDialog.show('Backing up your playlists... 1/' + playlist_ids.length);
+      $(".check-backup:checkbox:checked").prop('checked', false);
+      recursive_backup(0, playlist_ids);
     });
 
     $("#backup_all").click(function () {
@@ -118,7 +147,8 @@
 <div class="tab-content m-t-20">
     <div class="tab-pane active" id="playlists" role="tabpanel">
         <div class="col-xs-12">
-            <button id="bulk-restore" class="restore btn btn-primary btn-xs" name="restore" type="submit">Restore selected</button>
+            <button id="bulk-restore" class="btn btn-primary btn-xs" name="restore" type="submit">Restore selected</button>
+            <button id="bulk-backup" class="btn btn-info btn-xs" name="backup" type="submit">Backup selected</button>
 
             <table class="table table-striped table-hover table-condensed">
                 <thead>
@@ -137,13 +167,14 @@
                                 {{ playlist.stored_tracks }} tracks
                             </td>
                             <td class="adjust-width">
-                                <input type="checkbox" name="bulkrestore" value="{{ playlist.google_id }}"/>
+                                <input type="checkbox" name="bulkrestore" class="check-restore" value="{{ playlist.google_id }}"/>
                                 <button id="restore" class="restore btn btn-primary btn-xs" name="restore" value="{{ playlist.google_id }}" type="submit">Restore</button>
                             </td>
                             <td class="adjust-width text-right">
                                 {{ playlist.actual_tracks }} tracks
                             </td>
                             <td class="adjust-width">
+                                <input type="checkbox" name="bulkbackup" class="check-backup" value="{{ playlist.google_id }}"/>
                                 <button id="backup" class="backup btn btn-info btn-xs" name="backup" value="{{ playlist.google_id }}" type="submit">Backup</button>
                             </td>
                         </tr>
