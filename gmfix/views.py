@@ -165,7 +165,6 @@ def backup_all(request):
     return JsonResponse(data)
 
 def backup_interno(playlist_to_backup_id, mail, api):
-    library = load_personal_library()
     playlist_contents = api.get_all_user_playlist_contents()
     owner = mail
     for pl in playlist_contents:
@@ -207,6 +206,8 @@ def backup_interno(playlist_to_backup_id, mail, api):
 
             # we need to look up these track in the library
             if not track:
+                if 'library' not in vars() and 'library' not in globals():
+                    library = load_personal_library()
                 library_track = [
                     item for item in library if item.get('id')
                                                 in pl_track.get('trackId')]
