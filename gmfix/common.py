@@ -190,7 +190,7 @@ def open_api(username, password):
     global api
     log('Logging into google music...')
     api = Mobileclient()
-    if not api.login(username, password, Mobileclient.FROM_MAC_ADDRESS):
+    if not api.login(username, password, 'b5b82de9f91c4112'):
         log('ERROR unable to login')
         return api;
 
