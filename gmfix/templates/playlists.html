@@ -112,6 +112,49 @@
       });
     });
 
+    var recursive_delete = function (index, ids) {
+      var value = ids[index];
+      $('.modal-header h3').text('Deleting your playlists... ' + (index + 1) + '/' + ids.length);
+      $.ajax({
+        url: '{% url "delete" %}',
+        data: {
+          'playlist_id': value
+        },
+        dataType: 'json',
+        success: function (data) {
+            $("#" + value).removeClass("danger");
+            $("#" + value + " > td:nth-child(2)").text("DELETED");
+            if (index < ids.length - 1) {
+                recursive_delete(index + 1, ids);
+            } else {
+              waitingDialog.hide();
+              $('#myModal').modal({show:true})
+            }
+        }
+      });
+    }
+
+    $("#bulk-delete").click(function () {
+      var playlist_ids = $(".check-delete:checkbox:checked").map(function(){
+          return $(this).val();
+      }).get();
+      waitingDialog.show('Deleting your playlists... 1/' + playlist_ids.length);
+      $(".check-delete:checkbox:checked").prop('checked', false);
+      recursive_delete(0, playlist_ids);
+    });
+
+    $("#backup_all").click(function () {
+      waitingDialog.show('Backing up your playlists...');
+      $.ajax({
+        url: '{% url "backup_all" %}',
+        dataType: 'json',
+        success: function (data) {
+            waitingDialog.hide();
+            location.reload();
+        }
+      });
+    });
+
     $("#setlist-to-gpm").click(function () {
       waitingDialog.show('Generating playlist...');
       $.ajax({
@@ -149,6 +192,7 @@
         <div class="col-xs-12">
             <button id="bulk-restore" class="btn btn-primary btn-xs" name="restore" type="submit">Restore selected</button>
             <button id="bulk-backup" class="btn btn-info btn-xs" name="backup" type="submit">Backup selected</button>
+            <button id="bulk-delete" class="btn btn-danger btn-xs" name="delete" type="submit">Delete selected</button>
 
             <table class="table table-striped table-hover table-condensed">
                 <thead>
@@ -162,7 +206,10 @@
                     {% if playlist_list %}
                         {% for playlist in playlist_list %}
                         <tr id="{{ playlist.google_id }}" class="{% if playlist.stored_tracks != playlist.actual_tracks %}danger{% endif %}">
-                            <td>{{ playlist.name }}</td>
+                            <td>
+                                <input type="checkbox" name="bulkdelete" class="check-delete" value="{{ playlist.google_id }}"/>
+                                {{ playlist.name }}
+                            </td>
                             <td class="adjust-width text-right">
                                 {{ playlist.stored_tracks }} tracks
                             </td>
