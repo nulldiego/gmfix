@@ -256,6 +256,17 @@ def backup(request):
     return JsonResponse(data)
 
 
+def delete(request):
+    api = open_api(request.session['mail'], request.session['password'])
+    playlist_id = request.GET.get('playlist_id', None)
+    api.delete_playlist(playlist_id)
+    data = {
+        'num_tracks': 0
+    }
+    close_api()
+    return JsonResponse(data)
+
+
 def restore(request):
     log('RESTORE')
     playlist_id = request.GET.get('playlist_id', None)
