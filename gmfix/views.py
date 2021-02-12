@@ -165,6 +165,7 @@ def backup_all(request):
     return JsonResponse(data)
 
 def backup_interno(playlist_to_backup_id, mail, api):
+    yield "start backup"
     playlist_contents = api.get_all_user_playlist_contents()
     owner = mail
     for pl in playlist_contents:
@@ -172,6 +173,7 @@ def backup_interno(playlist_to_backup_id, mail, api):
         playlist_id = pl.get('id')
         # skip not desired playlists:
         if playlist_id != playlist_to_backup_id: continue
+        yield "playlist found"
         playlist_tracks = pl.get('tracks')
 
         # skip empty and no-name playlists
@@ -194,20 +196,24 @@ def backup_interno(playlist_to_backup_id, mail, api):
         log('============================================================')
 
         Playlist.objects.filter(google_id=playlist_id).delete()
+        yield "playlist deleted from db"
 
         p = Playlist(name=playlist_name, google_id=playlist_id, owner=owner)
         p.save()
+        yield "playlist without tracks saved to db"
 
         for tnum, pl_track in enumerate(playlist_tracks):
             track = pl_track.get('track')
 
             e = Entry(entry_id=pl_track.get('id'), playlist=p, position=tnum)
             e.save()
+            yield "entry saved"
 
             # we need to look up these track in the library
             if not track:
                 if 'library' not in vars() and 'library' not in globals():
                     library = load_personal_library()
+                    yield "library loaded"
                 library_track = [
                     item for item in library if item.get('id')
                                                 in pl_track.get('trackId')]
@@ -236,6 +242,7 @@ def backup_interno(playlist_to_backup_id, mail, api):
 
             e.track = t
             e.save()
+            yield "entry saved point 2"
 
         # calculate the stats
         stats_results = calculate_stats_results(stats, len(playlist_tracks))
@@ -249,11 +256,7 @@ def backup_interno(playlist_to_backup_id, mail, api):
 
 def backup(request):
     api = open_api(request.session['mail'], request.session['password'])
-    data = {
-        'num_tracks': backup_interno(request.GET.get('playlist_id', None), request.session['mail'], api)
-    }
-    close_api()
-    return JsonResponse(data)
+    return HttpResponse(backup_interno(request.GET.get('playlist_id', None), request.session['mail'], api))
 
 
 def delete(request):
